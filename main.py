@@ -24,6 +24,7 @@ def get_possible_comments():
 def get_highest_scoring_comment(comment_chains, possible_comments):
     pass
 
+
 def main():
     bot = get_praw_agent()
     comment_chains = get_recent_comment_chains()

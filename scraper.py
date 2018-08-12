@@ -46,7 +46,7 @@ def get_subeddit(bot, subreddit_name, only_allow_squares = True):
         if i.fullname not in used_posts:
             filtered_posts.append(i)
             used_posts.append(i.fullname)
-    return posts
+    return filtered_posts
 
 
 def read_subreddit(sub_name):

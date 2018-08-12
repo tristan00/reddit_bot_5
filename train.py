@@ -154,10 +154,10 @@ def main():
         posts = pickle.load(f)
 
     random.shuffle(posts)
-    posts = posts[:100]
+    posts = posts[:1000]
     random.shuffle(posts)
     texts = []
-    for count, i in enumerate(posts):
+    for  i in tqdm.tqdm(posts):
         post_title = i.title
         data_dicts = {'created_utc':[i.created_utc]}
         for j in i.comments._comments:
@@ -165,7 +165,6 @@ def main():
                 texts.extend(get_comments(post_title, j, data_dicts))
             except:
                 traceback.print_exc()
-        print(count, len(texts))
 
 
     preprocessed_comments = []
