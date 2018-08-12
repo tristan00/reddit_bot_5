@@ -4,6 +4,16 @@ import time
 import pickle
 
 
+subreddits = ['Demotivational', 'lolcats', 'supershibe', 'copypasta', 'emojipasta',
+              'TrollXChromosomes', 'trollychromosome', 'starterpacks', 'memes',
+              'trippinthroughtime', 'dankmemes', 'madlads', 'bidenbro', 'memeeconomy',
+              'rarepuppers', 'dankchristianmemes', 'terriblefacebookmemes',
+              '2meirl4meirl', 'AdviceAnimals', 'trippinthroughtime', 'BikiniBottomTwitter',
+              'wholesomememes', 'Overwatch_Memes', 'SequelMemes', 'bonehurtingjuice',
+              'me_irl', 'meirl', 'anime_irl', '2meirl4meirl', 'meow_irl', 'woof_irl',
+              'TooMeIrlForMeIrl', 'wallstreetbets', 'polandball', '4chan', 'KenM',
+              'Classic4chan', 'greentext']
+
 
 path = r'/home/td/Documents/reddit_bot/'
 subreddit_names_to_follow = []
@@ -29,6 +39,13 @@ def get_subeddit(bot, subreddit_name, only_allow_squares = True):
 
     posts = []
     posts.extend([p for p in subreddit.top('all', limit = 1000)])
+    posts.extend([p for p in subreddit.new(limit=1000)])
+    filtered_posts = []
+    used_posts = []
+    for i in posts:
+        if i.fullname not in used_posts:
+            filtered_posts.append(i)
+            used_posts.append(i.fullname)
     return posts
 
 
@@ -37,22 +54,41 @@ def read_subreddit(sub_name):
     return get_subeddit(bot, sub_name)
 
 
-subreddits = ['Demotivational', 'lolcats', 'supershibe', 'copypasta', 'emojipasta',
-              'TrollXChromosomes', 'trollychromosome', 'starterpacks', 'memes',
-              'trippinthroughtime', 'dankmemes', 'madlads', 'bidenbro', 'memeeconomy',
-              'rarepuppers', 'dankchristianmemes', 'terriblefacebookmemes', 'me_irl',
-              '2meirl4meirl']
+def get_all_comments(posts):
+    texts = []
+    for p in posts:
+        for i in p.comments._comments:
 
-posts = []
-for i in subreddits:
-    print(i)
-    posts.extend(read_subreddit(i))
-    print(len(posts))
+            texts.extend(get_comments(i))
+        print(len(texts))
+    return texts
 
-with open(path + 'posts.plk', 'wb') as f:
-    pickle.dump(posts, f)
 
-# with open(path + 'posts.plk', 'rb') as f:
-#     posts = pickle.load(f)
-#
-# print(len(posts))
+
+def get_comments(comment_chain):
+    comment_text = []
+    try:
+        for i in comment_chain.replies._comments:
+            comment_text.extend(get_comments(i))
+
+        comment_text.extend([comment_chain.body])
+    except:
+        pass
+    return comment_text
+
+
+if __name__ == '__main__':
+
+
+    posts = []
+    for i in subreddits:
+        print(i)
+        posts.extend(read_subreddit(i))
+        print(len(posts))
+
+    with open(path + 'posts.plk', 'wb') as f:
+        pickle.dump(posts, f)
+
+    with open(path + 'possible_comments.plk', 'wb') as f:
+        pickle.dump(get_all_comments(posts), f)
+

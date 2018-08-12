@@ -28,7 +28,7 @@ lgbm_params =  {
     'boosting_type': 'gbdt',
     'objective': 'regression',
     'metric': 'mae',
-    "learning_rate": 0.001,
+    "learning_rate": 0.01,
     "max_depth": -1,
     'num_leaves':31,
     "feature_fraction": 0.5,
@@ -109,7 +109,7 @@ with open(path + 'posts.plk', 'rb') as f:
     posts = pickle.load(f)
 
 random.shuffle(posts)
-posts = posts[:100]
+posts = posts[:200]
 random.shuffle(posts)
 texts = []
 for count, i in enumerate(posts):
@@ -162,6 +162,6 @@ model = lgb.train(
     num_boost_round=max_iter,
     valid_sets=[lgtrain, lgvalid],
     valid_names=['train', 'valid'],
-    early_stopping_rounds=1000,
-    verbose_eval=100
+    early_stopping_rounds=100,
+    verbose_eval=10
 )
