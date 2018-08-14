@@ -4,25 +4,13 @@ import time
 import pickle
 import tqdm
 import random
-
-
-
-subreddits = ['Demotivational', 'lolcats', 'supershibe', 'copypasta', 'emojipasta',
-              'TrollXChromosomes', 'trollychromosome', 'starterpacks', 'memes',
-              'trippinthroughtime', 'dankmemes', 'madlads', 'bidenbro', 'memeeconomy',
-              'rarepuppers', 'dankchristianmemes', 'terriblefacebookmemes',
-              '2meirl4meirl', 'AdviceAnimals', 'trippinthroughtime', 'BikiniBottomTwitter',
-              'wholesomememes', 'Overwatch_Memes', 'SequelMemes', 'bonehurtingjuice',
-              'me_irl', 'meirl', 'anime_irl', '2meirl4meirl', 'meow_irl', 'woof_irl',
-              'TooMeIrlForMeIrl', 'wallstreetbets', 'polandball', '4chan', 'KenM',
-              'Classic4chan', 'greentext']
+from constants import *
 
 
 path = r'/home/td/Documents/reddit_bot/'
 subreddit_names_to_follow = []
 
 
-client_id, client_secret, username, password = 'e67IU5dAiH-QRw', '6ma7vRs71fyh_69r9AmC9eSr6sw', 'dirty_cheeser', 'SVUhgJCTZrPBeN2U'
 
 def create_praw_agent():
     reddit_agent = praw.Reddit(client_id=client_id,

@@ -1,7 +1,5 @@
 import praw
-
-
-client_id, client_secret, username, password = 'e67IU5dAiH-QRw', '6ma7vRs71fyh_69r9AmC9eSr6sw', 'dirty_cheeser', 'SVUhgJCTZrPBeN2U'
+from constants import *
 
 
 def get_praw_agent():
