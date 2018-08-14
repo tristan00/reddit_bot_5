@@ -16,7 +16,7 @@ import operator
 import nltk
 from collections import Counter
 import gc
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pool
 from doc2vec import train_doc2vec
 
 path = r'/home/td/Documents/reddit_bot/'
@@ -50,7 +50,6 @@ def nlp_clean(data):
     new_str = data.lower()
     dlist = nltk.tokenize.word_tokenize(new_str)
     dlist = [i for i in dlist if i not in stopword_set]
-    # list(set(dlist).difference(stopword_set))
 
     return dlist
 
@@ -168,6 +167,19 @@ def run_model(q1, q2):
         q2.put(output_dict)
 
 
+def process_input(i):
+    texts = []
+    post_title = i.title
+    data_dicts = {'created_utc': [i.created_utc]}
+    for j in i.comments._comments:
+        try:
+            texts= get_comments(post_title, j, data_dicts)
+        except:
+            traceback.print_exc()
+    print(len(texts))
+    return texts
+
+
 def main():
     train_doc2vec()
     # model = gensim.models.doc2vec.Doc2Vec.load('/home/td/Documents/reddit_bot/doc2vec.model')
@@ -176,22 +188,40 @@ def main():
         posts = pickle.load(f)
 
     random.shuffle(posts)
-    posts = posts[:2000]
+    posts = random.sample(posts, 10000)
     gc.collect()
+    texts = []
+
+    # pool = Pool(processes=10)
+    # texts = pool.map(process_input, posts, chunksize=1)
+    # pool.close()
+    # pool.join()
+
+    # texts = sum(texts, [])
+
     texts = []
     for i in tqdm.tqdm(posts):
         post_title = i.title
-        data_dicts = {'created_utc':[i.created_utc]}
+        data_dicts = {'created_utc': [i.created_utc]}
         for j in i.comments._comments:
             try:
                 texts.extend(get_comments(post_title, j, data_dicts))
             except:
                 traceback.print_exc()
+    #
+    # for i in tqdm.tqdm(posts):
+    #     post_title = i.title
+    #     data_dicts = {'created_utc':[i.created_utc]}
+    #     for j in i.comments._comments:
+    #         try:
+    #             texts.extend(get_comments(post_title, j, data_dicts))
+    #         except:
+    #             traceback.print_exc()
 
     q1 = Queue(maxsize=25)
     q2 = Queue()
 
-    num_of_proccesses = 4
+    num_of_proccesses = 5
 
     ps = [Process(target=run_model, args=(q1,q2,)) for _ in range(num_of_proccesses)]
     [p.start() for p in ps]
@@ -227,6 +257,8 @@ def main():
     df['scaled_score'] = output
 
     df = df.drop('score', axis = 1)
+
+    df.to_csv(path + 'features.csv', index=False)
 
     x = df.drop('scaled_score', axis = 1)
     y = df['scaled_score']

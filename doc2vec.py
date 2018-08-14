@@ -6,9 +6,8 @@ from os import listdir
 from os.path import isfile, join
 from gensim.models.callbacks import CallbackAny2Vec
 import nltk
-import multiprocessing
 from comment_extractor import extract
-
+import random
 
 def train_doc2vec(extract_new_data = False):
     if extract_new_data:
@@ -19,7 +18,7 @@ def train_doc2vec(extract_new_data = False):
 
     docLabels = []
     docLabels = [f for f in listdir(file_path) if f.endswith('.txt')]
-
+    # docLabels = random.sample(docLabels, 10000)
     print(len(docLabels))
     data = []
     for doc in docLabels:
@@ -38,7 +37,6 @@ def train_doc2vec(extract_new_data = False):
             new_str = d.lower()
             dlist = nltk.tokenize.word_tokenize(new_str)
             dlist = [i for i in dlist if i not in stopword_set]
-            # list(set(dlist).difference(stopword_set))
 
             new_data.append(dlist)
         return new_data
@@ -66,7 +64,7 @@ def train_doc2vec(extract_new_data = False):
         def on_epoch_end(self, model):
             print("Epoch #{} end".format(self.epoch))
             self.epoch += 1
-            model.save('/home/td/Documents/reddit_bot/doc2vec.model')
+            # model.save('/home/td/Documents/reddit_bot/doc2vec.model')
 
 
 
@@ -78,10 +76,10 @@ def train_doc2vec(extract_new_data = False):
 
     cb = EpochLogger()
 
-    model = gensim.models.Doc2Vec(vector_size=100, min_count=10, alpha=0.05, min_alpha=0.01, workers=10, dbow_words = 1)
+    model = gensim.models.Doc2Vec(vector_size=300, min_count=10, alpha=0.05, min_alpha=0.01, workers=10, dbow_words = 1)
 
     model.build_vocab(it)
-    model.train(it, total_examples=model.corpus_count, epochs=1000, callbacks = (cb,))
+    model.train(it, total_examples=model.corpus_count, epochs=1000)
 
 
     # #training of model
@@ -93,3 +91,6 @@ def train_doc2vec(extract_new_data = False):
 
     model.save('/home/td/Documents/reddit_bot/doc2vec.model')
     print('model saved')
+
+if __name__ == '__main__':
+    train_doc2vec()
