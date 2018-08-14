@@ -2,6 +2,9 @@ import praw
 import traceback
 import time
 import pickle
+import tqdm
+import random
+
 
 
 subreddits = ['Demotivational', 'lolcats', 'supershibe', 'copypasta', 'emojipasta',
@@ -56,11 +59,14 @@ def read_subreddit(sub_name):
 
 def get_all_comments(posts):
     texts = []
-    for p in posts:
+    random.shuffle(posts)
+    for p in tqdm.tqdm(posts):
         for i in p.comments._comments:
 
             texts.extend(get_comments(i))
-        print(len(texts))
+        print(len(texts), len(set(texts)))
+        with open(path + 'possible_comments.plk', 'wb') as f:
+            pickle.dump(list(set(texts)), f)
     return texts
 
 
@@ -88,7 +94,7 @@ if __name__ == '__main__':
 
     with open(path + 'posts.plk', 'wb') as f:
         pickle.dump(posts, f)
+    get_all_comments(posts)
 
-    with open(path + 'possible_comments.plk', 'wb') as f:
-        pickle.dump(get_all_comments(posts), f)
+
 

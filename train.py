@@ -15,7 +15,9 @@ import copy
 import operator
 import nltk
 from collections import Counter
-
+import gc
+from multiprocessing import Process, Queue
+from doc2vec import train_doc2vec
 
 path = r'/home/td/Documents/reddit_bot/'
 path_out = r'/home/td/Documents/reddit_bot/comment_texts/'
@@ -24,16 +26,16 @@ c_splitter = ' c_splitter '
 
 
 
-tokenizer = RegexpTokenizer(r'\w+')
+# tokenizer = RegexpTokenizer(r'\w+')
 stopword_set = set(stopwords.words('english'))
 
 lgbm_params =  {
     'boosting_type': 'gbdt',
     'objective': 'regression',
     'metric': 'mae',
-    "learning_rate": 0.01,
+    "learning_rate": 0.001,
     "max_depth": -1,
-    'num_leaves':31,
+    'num_leaves':255,
     "feature_fraction": 0.5,
     "bagging_fraction": 0.5,
     'bagging_freq': 1,
@@ -46,7 +48,7 @@ def nlp_clean(data):
 
     new_data = []
     new_str = data.lower()
-    dlist = tokenizer.tokenize(new_str)
+    dlist = nltk.tokenize.word_tokenize(new_str)
     dlist = [i for i in dlist if i not in stopword_set]
     # list(set(dlist).difference(stopword_set))
 
@@ -147,17 +149,37 @@ def get_comments(prev_text, comments, parent_dict):
         return []
 
 
-def main():
+def run_model(q1, q2):
     model = gensim.models.doc2vec.Doc2Vec.load('/home/td/Documents/reddit_bot/doc2vec.model')
+    while True:
+        next_item = q1.get()
+
+        if not next_item:
+            break
+
+        preds = model.infer_vector(nlp_clean(next_item['text']))
+
+        output_dict = {i: j for i, j in next_item.items() if i != 'text'}
+
+        for count, j in enumerate(preds):
+            output_dict['doc2vec_{0}'.format(count)] = j
+        output_dict['score'] = next_item['score']
+
+        q2.put(output_dict)
+
+
+def main():
+    train_doc2vec()
+    # model = gensim.models.doc2vec.Doc2Vec.load('/home/td/Documents/reddit_bot/doc2vec.model')
 
     with open(path + 'posts.plk', 'rb') as f:
         posts = pickle.load(f)
 
     random.shuffle(posts)
-    posts = posts[:1000]
-    random.shuffle(posts)
+    posts = posts[:2000]
+    gc.collect()
     texts = []
-    for  i in tqdm.tqdm(posts):
+    for i in tqdm.tqdm(posts):
         post_title = i.title
         data_dicts = {'created_utc':[i.created_utc]}
         for j in i.comments._comments:
@@ -166,17 +188,33 @@ def main():
             except:
                 traceback.print_exc()
 
+    q1 = Queue(maxsize=25)
+    q2 = Queue()
+
+    num_of_proccesses = 4
+
+    ps = [Process(target=run_model, args=(q1,q2,)) for _ in range(num_of_proccesses)]
+    [p.start() for p in ps]
+
+    for i in tqdm.tqdm(texts):
+        q1.put(i)
+    for _ in ps:
+        q1.put(None)
 
     preprocessed_comments = []
-    for i in tqdm.tqdm(texts):
-        preds = model.infer_vector(nlp_clean(i['text']))
+    while len(preprocessed_comments) < len(texts):
+        preprocessed_comments.append(q2.get())
 
-        output_dict = {i:j for i, j in i.items() if i != 'text'}
-
-        for count, j in enumerate(preds):
-            output_dict['doc2vec_{0}'.format(count)] = j
-        output_dict['score'] = i['score']
-        preprocessed_comments.append(output_dict)
+    #
+    # for i in tqdm.tqdm(texts):
+    #     preds = model.infer_vector(nlp_clean(i['text']))
+    #
+    #     output_dict = {k:j for k, j in i.items() if k != 'text'}
+    #
+    #     for count, j in enumerate(preds):
+    #         output_dict['doc2vec_{0}'.format(count)] = j
+    #     output_dict['score'] = i['score']
+    #     preprocessed_comments.append(output_dict)
 
     df = pd.DataFrame.from_dict(preprocessed_comments)
     df = df.fillna(0)
@@ -204,8 +242,8 @@ def main():
         num_boost_round=max_iter,
         valid_sets=[lgtrain, lgvalid],
         valid_names=['train', 'valid'],
-        early_stopping_rounds=100,
-        verbose_eval=10
+        early_stopping_rounds=1000,
+        verbose_eval=100
     )
     model.save_model('/home/td/Documents/reddit_bot/lgbmodel', num_iteration=model.best_iteration)
 
