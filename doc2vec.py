@@ -72,14 +72,14 @@ def train_doc2vec(extract_new_data = False):
 
     it = LabeledLineSentence(data, docLabels)
 
-    print(len([i for i in it]))
+    # print(len([i for i in it]))
 
     cb = EpochLogger()
 
-    model = gensim.models.Doc2Vec(vector_size=300, min_count=10, alpha=0.05, min_alpha=0.01, workers=10, dbow_words = 1)
+    model = gensim.models.Doc2Vec(vector_size=100, min_count=10, alpha=0.05, min_alpha=0.01, workers=10, dbow_words = 1)
 
     model.build_vocab(it)
-    model.train(it, total_examples=model.corpus_count, epochs=1000)
+    model.train(it, total_examples=model.corpus_count, epochs=500)
 
 
     # #training of model
