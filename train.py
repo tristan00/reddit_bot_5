@@ -19,10 +19,9 @@ import gc
 from multiprocessing import Process, Queue, Pool
 from doc2vec import train_doc2vec
 
+from constants import *
 path = r'/home/td/Documents/reddit_bot/'
 path_out = r'/home/td/Documents/reddit_bot/comment_texts/'
-
-c_splitter = ' c_splitter '
 
 
 

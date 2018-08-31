@@ -5,10 +5,8 @@ import tqdm
 import traceback
 import multiprocessing
 
+from constants import *
 
-path = r'/home/td/Documents/reddit_bot/'
-path_out = r'/home/td/Documents/reddit_bot/comment_texts/'
-c_splitter = ' c_splitter '
 
 
 

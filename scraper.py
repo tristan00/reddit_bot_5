@@ -21,7 +21,7 @@ def create_praw_agent():
     return reddit_agent
 
 
-def get_subeddit(bot, subreddit_name, only_allow_squares = True):
+def get_subeddit(bot, subreddit_name):
     subreddit = bot.subreddit(subreddit_name)
     try:
         subreddit.subscribe()
@@ -29,8 +29,8 @@ def get_subeddit(bot, subreddit_name, only_allow_squares = True):
         traceback.print_exc()
 
     posts = []
-    posts.extend([p for p in subreddit.top('all', limit = 1000)])
-    posts.extend([p for p in subreddit.new(limit=1000)])
+    posts.extend([p for p in subreddit.top('all', limit = 10)])
+    # posts.extend([p for p in subreddit.new(limit=1000)])
     filtered_posts = []
     used_posts = []
     for i in posts:
@@ -45,20 +45,6 @@ def read_subreddit(sub_name):
     return get_subeddit(bot, sub_name)
 
 
-def get_all_comments(posts):
-    texts = []
-    random.shuffle(posts)
-    for p in tqdm.tqdm(posts):
-        for i in p.comments._comments:
-
-            texts.extend(get_comments(i))
-        print(len(texts), len(set(texts)))
-        with open(path + 'possible_comments.plk', 'wb') as f:
-            pickle.dump(list(set(texts)), f)
-    return texts
-
-
-
 def get_comments(comment_chain):
     comment_text = []
     try:
@@ -69,6 +55,17 @@ def get_comments(comment_chain):
     except:
         pass
     return comment_text
+
+
+def get_all_comments(posts):
+    texts = []
+    random.shuffle(posts)
+    for c1, p in enumerate(posts):
+        for c2, i in enumerate(p.comments._comments):
+            with open(path + 'chains/{0}_{1}.plk'.format(c1, c2), 'wb') as f:
+                pickle.dump(get_comments(i), f)
+
+    return texts
 
 
 if __name__ == '__main__':
@@ -82,7 +79,7 @@ if __name__ == '__main__':
 
     with open(path + 'posts.plk', 'wb') as f:
         pickle.dump(posts, f)
-    get_all_comments(posts)
+    # get_all_comments(posts)
 
 
 
