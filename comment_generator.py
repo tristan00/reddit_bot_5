@@ -14,44 +14,30 @@ import random
 import pickle
 import tqdm
 import traceback
+import pandas as pd
+import glob
+
+
 
 all_characters = string.printable
 n_characters = len(all_characters)
-min_len = 150
-
-def read_file(filename):
-    file = unidecode.unidecode(open(filename).read())
-    return file, len(file)
-
-
-def get_comments(prev_text, comments):
-    try:
-        prev_text = prev_text + c_splitter + str(comments.body)
-        comment_text = []
-
-        for i in comments.replies._comments:
-            comment_text.extend(get_comments(prev_text, i))
-
-        return comment_text
-    except:
-        # traceback.print_exc()
-        return [prev_text]
+min_len = 260
 
 
 def read_files():
-    with open(path + 'posts.plk', 'rb') as f:
-        posts = pickle.load(f)
-    random.shuffle(posts)
+    files = glob.glob('{0}/{1}/{2}.csv'.format(path, 'text_dumps', '*'))
+    dfs = []
+    for f in files:
+        try:
+            df = pd.read_csv(f, sep = '|')
+            dfs.append(df)
+        except:
+            pass
+    df = pd.concat(dfs)
+    texts = df['text'].tolist()
+    print(len(texts))
 
-    texts = []
-    for i in tqdm.tqdm(posts[:1000]):
-        post_title = i.title
-        for j in i.comments._comments:
-            try:
-                texts.extend(get_comments(post_title, j))
-            except:
-                traceback.print_exc()
-    texts = [i for i in texts if len(i) > min_len]
+    texts = [i for i in texts if len(str(i)) > min_len]
     print(len(texts))
     return texts
 
@@ -188,7 +174,7 @@ def train(inp, target, decoder, criterion, decoder_optimizer, batch_size, chunk_
     return loss.data[0] / chunk_len
 
 def save(decoder):
-    save_filename = os.path.splitext(os.path.basename('torchmodel'))[0]
+    save_filename = os.path.splitext(os.path.basename('torch_char_generator'))[0]
     torch.save(decoder, save_filename)
     print('Saved as %s' % save_filename)
 
@@ -196,10 +182,10 @@ def save(decoder):
 def main():
     epochs = 1000000
     chunk_len = 256
-    batch_size = 512
-    hidden_size = 128
+    batch_size = 16
+    hidden_size = 256
     n_layers = 5
-    print_every = 100
+    print_every = 10000
 
     decoder = CharRNN(
         n_characters,
@@ -208,24 +194,26 @@ def main():
         model='gru',
         n_layers=n_layers,
     )
-    decoder_optimizer = torch.optim.RMSprop(decoder.parameters())
+    decoder_optimizer = torch.optim.RMSprop(decoder.parameters(), lr = 1e-2)
     criterion = nn.CrossEntropyLoss()
 
     decoder.cuda()
 
     start = time.time()
-    all_losses = []
-    loss_avg = 0
+    loss_count = 1000
 
     try:
         print("Training for %d epochs..." % epochs)
+        losses = []
         for epoch in range(1, epochs + 1):
-            print('epoch:', epoch)
             loss = train(*random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk_len))
-            loss_avg += loss
+            losses.append(loss.item())
+            losses = losses[-loss_count:]
+
+            print('epoch:', epoch, 'loss:', sum(losses)/len(losses), len(losses))
 
             if epoch % print_every == 0:
-                for t in [.8]:
+                try:
                     file = random.choice(files)
                     while len(file) + 2 < chunk_len:
                         file = random.choice(files)
@@ -233,14 +221,19 @@ def main():
 
                     start_index = random.randint(0, file_len - chunk_len)
                     end_index = start_index + chunk_len + 1
-                    primer = file[start_index:end_index]
+                    primer = file[:end_index]
+                    actual = file[end_index:]
 
                     print()
-                    print('[%s (%d %d%%) %.4f] %f' % (time_since(start), epoch, epoch / epochs * 100, loss, t))
-                    pred_text = generate(decoder, primer, 500, temperature=t)
+                    print('[%s (%d %d%%) %.4f] %f' % (time_since(start), epoch, epoch / epochs * 100, sum(losses)/len(losses), .8))
+                    pred_text = generate(decoder, primer, 500, temperature=.8)
                     print('primer:', primer, '\n')
                     print('pred:',pred_text, '\n')
+                    print('actual:', actual, '\n')
+
                     print('\n\n\n')
+                except:
+                    traceback.print_exc()
 
                 print("Saving...")
                 save(decoder)

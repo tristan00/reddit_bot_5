@@ -5,6 +5,9 @@ import pickle
 import tqdm
 import random
 from constants import *
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
 
 
 path = r'/home/td/Documents/reddit_bot/'
@@ -29,15 +32,16 @@ def get_subeddit(bot, subreddit_name):
         traceback.print_exc()
 
     posts = []
-    posts.extend([p for p in subreddit.top('all', limit = 10)])
-    # posts.extend([p for p in subreddit.new(limit=1000)])
+    posts.extend([p for p in subreddit.top('all', limit = 1000)])
+    posts.extend([p for p in subreddit.new(limit=1000)])
     filtered_posts = []
     used_posts = []
     for i in posts:
         if i.fullname not in used_posts:
             filtered_posts.append(i)
             used_posts.append(i.fullname)
-    return filtered_posts
+
+    read_files(filtered_posts, subreddit)
 
 
 def read_subreddit(sub_name):
@@ -45,41 +49,81 @@ def read_subreddit(sub_name):
     return get_subeddit(bot, sub_name)
 
 
-def get_comments(comment_chain):
-    comment_text = []
+def generate_subreddit_list():
+    # url = 'https://www.reddit.com/r/ListOfSubreddits/wiki/listofsubreddits'
+    # s = requests.Session()
+    # r = s.get(url)
+    with open('sub_list.html', 'r') as f:
+        r = f.read()
+    soup = BeautifulSoup(r)
+    links = soup.find_all('a', {'rel':'nofollow'})
+    links = [i['href'] for i in links]
+    links = [i.replace('/r/', '') for i in links if '/r/' == i[0:3]]
+    print(links)
+
+
+def get_comments_from_posts(prev_text, comments):
     try:
-        for i in comment_chain.replies._comments:
-            comment_text.extend(get_comments(i))
+        prev_text = prev_text + c_splitter + str(comments.body)
+        comment_text = []
 
-        comment_text.extend([comment_chain.body])
+        for i in comments.replies._comments:
+            comment_text.extend(get_comments_from_posts(prev_text, i))
+
+        comment_text.append({'score':comments.score, 'text':prev_text.replace('|', ' ')})
+
+        return comment_text
     except:
-        pass
-    return comment_text
+        # traceback.print_exc()
+        return []
 
 
-def get_all_comments(posts):
-    texts = []
+def read_files(posts, sub):
     random.shuffle(posts)
-    for c1, p in enumerate(posts):
-        for c2, i in enumerate(p.comments._comments):
-            with open(path + 'chains/{0}_{1}.plk'.format(c1, c2), 'wb') as f:
-                pickle.dump(get_comments(i), f)
 
+    texts = []
+    for i in tqdm.tqdm(posts):
+        post_title = i.title
+        for j in i.comments._comments:
+            try:
+                texts.extend(get_comments_from_posts(post_title, j))
+            except:
+                traceback.print_exc()
+
+    # texts = [i.replace('|', ' ') for i in texts]
+    # texts = [{'count':count, 'text':i} for count, i in enumerate(texts)]
+    df = pd.DataFrame.from_dict(texts)
+    df.to_csv('{0}/{1}/{2}.csv'.format(path, 'text_dumps', sub), sep = '|', index = False)
     return texts
 
 
 if __name__ == '__main__':
-
-
+    # generate_subreddit_list()
+    # subreddits = subreddits[:2]
     posts = []
-    for i in subreddits:
-        print(i)
-        posts.extend(read_subreddit(i))
-        print(len(posts))
+    import glob
 
-    with open(path + 'posts.plk', 'wb') as f:
-        pickle.dump(posts, f)
-    # get_all_comments(posts)
+    files = glob.glob('{0}/{1}/{2}.csv'.format(path, 'text_dumps', '*'))
+    files = [i.split('/')[-1].split('.')[0] for i in files]
+    print(len(subreddits))
+    subreddits = [i for i in subreddits if i not in files]
+    print(len(subreddits))
+
+    random.shuffle(subreddits)
+    for count, i in enumerate(subreddits):
+        try:
+            print(count, len(subreddits), i)
+            read_subreddit(i)
+        except:
+            traceback.print_exc()
+            time.sleep(5)
+    #
+    # read_files()
+    #
+    # with open(path + 'posts.plk', 'wb') as f:
+    #     pickle.dump(posts, f)
+    # # get_all_comments(posts)
+
 
 
 
