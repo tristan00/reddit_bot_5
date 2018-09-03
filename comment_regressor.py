@@ -27,7 +27,8 @@ min_len = 260
 def read_files():
     files = glob.glob('{0}/{1}/{2}.csv'.format(path, 'text_dumps', '*'))
     dfs = []
-    for f in files:
+    print(files)
+    for f in files[:1]:
         try:
             df = pd.read_csv(f, sep = '|')
             dfs.append(df)
@@ -38,6 +39,8 @@ def read_files():
     t = QuantileTransformer()
     df = df[pd.to_numeric(df['score'], errors='coerce').notnull()]
     df['score'] = t.fit_transform(np.reshape(df['score'].values, (-1, 1)))
+
+    df['score'] = df['score'].apply(lambda x: 1.0 if x > 0 else 0.0)
     texts = df.to_dict(orient = 'records')
     print(len(texts))
     print(len(texts))
@@ -182,8 +185,8 @@ def train(inp, target, decoder, criterion, decoder_optimizer, batch_size, chunk_
 
     for c in range(chunk_len):
         output, hidden = decoder(inp[:,c], hidden)
-        loss += criterion(output, target)
 
+    loss += criterion(output, target)
     loss.backward()
     decoder_optimizer.step()
 
@@ -197,7 +200,7 @@ def save(decoder):
 
 def main():
     epochs = 1000000
-    chunk_len = 256
+    chunk_len = 51
     batch_size = 16
     hidden_size = 256
     n_layers = 5
@@ -211,7 +214,7 @@ def main():
         n_layers=n_layers,
     )
     decoder_optimizer = torch.optim.RMSprop(decoder.parameters(), lr = 1e-3)
-    criterion = nn.L1Loss()
+    criterion = nn.MSELoss()
 
     decoder.cuda()
 

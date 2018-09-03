@@ -8,7 +8,8 @@ from constants import *
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-
+import os
+import shutil
 
 path = r'/home/td/Documents/reddit_bot/'
 subreddit_names_to_follow = []
@@ -97,6 +98,34 @@ def read_files(posts, sub):
     return texts
 
 
+
+def scrape_subreddit(sub_name):
+    posts = read_subreddit(sub_name)
+    random.shuffle(posts)
+
+    texts = []
+    for i in tqdm.tqdm(posts):
+        post_title = i.title
+        for j in i.comments._comments:
+            try:
+                texts.extend(get_comments_from_posts(post_title, j))
+            except:
+                traceback.print_exc()
+
+    df = pd.DataFrame.from_dict(texts)
+    shutil.rmtree('{0}/{1}'.format(path, sub_name))
+    os.makedirs('{0}/{1}'.format(path, sub_name))
+    df.to_csv('{0}/{1}/text.csv'.format(path, sub_name), sep = '|', index = False)
+
+
+def get_new_posts(subreddit_name):
+    bot = create_praw_agent()
+    posts = []
+    subreddit = bot.subreddit(subreddit_name)
+    posts.extend([p for p in subreddit.new(limit=20)])
+    return posts
+
+
 if __name__ == '__main__':
     # generate_subreddit_list()
     # subreddits = subreddits[:2]
@@ -106,7 +135,7 @@ if __name__ == '__main__':
     files = glob.glob('{0}/{1}/{2}.csv'.format(path, 'text_dumps', '*'))
     files = [i.split('/')[-1].split('.')[0] for i in files]
     print(len(subreddits))
-    subreddits = [i for i in subreddits if i not in files]
+    # subreddits = [i for i in subreddits if i not in files]
     print(len(subreddits))
 
     random.shuffle(subreddits)

@@ -16,17 +16,31 @@ import tqdm
 import traceback
 import pandas as pd
 import glob
-
-
-
+from sklearn.preprocessing import QuantileTransformer
+import numpy as np
+import collections
+from nltk.tokenize import word_tokenize
+from nltk.probability import FreqDist
+# import nltk
+# nltk.download('punkt')
 all_characters = string.printable
 n_characters = len(all_characters)
-min_len = 260
+all_words = []
+n_words = 0
+g_batch_size = 512
+word_dict = dict()
+reverse_word_dict = dict()
+
+max_words = 20000
+min_len = g_batch_size + 4
 
 
 def read_files():
     files = glob.glob('{0}/{1}/{2}.csv'.format(path, 'text_dumps', '*'))
     dfs = []
+    print(files)
+    files = [i for i in files if 'dankmemes' in i]
+
     for f in files:
         try:
             df = pd.read_csv(f, sep = '|')
@@ -34,16 +48,35 @@ def read_files():
         except:
             pass
     df = pd.concat(dfs)
-    texts = df['text'].tolist()
-    print(len(texts))
 
-    texts = [i for i in texts if len(str(i)) > min_len]
+    t = QuantileTransformer()
+    df = df[pd.to_numeric(df['score'], errors='coerce').notnull()]
+    df['score'] = t.fit_transform(np.reshape(df['score'].values, (-1, 1)))
+    df = df[df['score'] > .5]
+
+    df['text'] = df['text'].fillna('')
+    texts = df['text'].tolist()
+    texts = [i for i in texts if len(i) > min_len]
     print(len(texts))
     return texts
 
-files = read_files()
 
-# Turning a string into a tensor
+def read_sub(sub_name):
+    df = pd.read_csv('{0}/{1}/text.csv'.format(path, sub_name), sep='|', index=False)
+    t = QuantileTransformer()
+    df = df[pd.to_numeric(df['score'], errors='coerce').notnull()]
+    df['score'] = t.fit_transform(np.reshape(df['score'].values, (-1, 1)))
+    df = df[df['score'] > .75]
+
+    df['text'] = df['text'].fillna('')
+    texts = df['text'].tolist()
+    texts = [i for i in texts if len(i) > min_len]
+    print(len(texts))
+    return texts
+
+
+
+
 
 def char_tensor(string):
     tensor = torch.zeros(len(string)).long()
@@ -131,7 +164,7 @@ class CharRNN(nn.Module):
         return Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size))
 
 
-def random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk_len):
+def random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk_len, files):
     inp = torch.LongTensor(batch_size, chunk_len)
     target = torch.LongTensor(batch_size, chunk_len)
     for bi in range(batch_size):
@@ -173,19 +206,34 @@ def train(inp, target, decoder, criterion, decoder_optimizer, batch_size, chunk_
 
     return loss.data[0] / chunk_len
 
-def save(decoder):
-    save_filename = os.path.splitext(os.path.basename('torch_char_generator'))[0]
+def save(decoder, loc = None):
+    if not loc:
+        save_filename = os.path.splitext(os.path.basename('torch_char_generator'))[0]
+    else:
+        save_filename = loc + '/torch_char_generator'
     torch.save(decoder, save_filename)
     print('Saved as %s' % save_filename)
 
 
-def main():
+
+def make_sub_prediction(sub_name, text, comment_len = 200):
+    save_filename = '{0}/{1}/{2}'.format(path, sub_name, 'torch_char_generator')
+    decoder = torch.load(save_filename)
+    primer = text
+    pred_text = generate(decoder, primer, predict_len = comment_len, temperature=.8)
+    return pred_text
+
+
+
+def make_sub_model(sub_name):
+    files = read_sub(sub_name)
+
     epochs = 1000000
-    chunk_len = 256
-    batch_size = 16
-    hidden_size = 256
+    chunk_len = g_batch_size
+    batch_size = 128
+    hidden_size = g_batch_size
     n_layers = 5
-    print_every = 10000
+    print_every = 100
 
     decoder = CharRNN(
         n_characters,
@@ -194,19 +242,94 @@ def main():
         model='gru',
         n_layers=n_layers,
     )
-    decoder_optimizer = torch.optim.RMSprop(decoder.parameters(), lr = 1e-2)
+
+    decoder_optimizer = torch.optim.RMSprop(decoder.parameters(), lr=1e-4)
+    criterion = nn.CrossEntropyLoss()
+    decoder.cuda()
+    start = time.time()
+    loss_count = 100
+    best_score = 10
+    patience = 3
+    time_since_last_improvement = 0
+
+    print("Training for %d epochs..." % epochs)
+    losses = []
+    for epoch in range(1, epochs + 1):
+        loss = train(*random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk_len, files))
+        losses.append(loss.item())
+        losses = losses[-loss_count:]
+
+        print('epoch:', epoch, 'loss:', sum(losses) / len(losses), len(losses))
+
+        if epoch % print_every == 0:
+            try:
+                file = random.choice(files)
+                while len(file) + 2 < chunk_len:
+                    file = random.choice(files)
+                file_len = len(file)
+
+                start_index = random.randint(0, file_len - chunk_len)
+                end_index = start_index + chunk_len + 1
+                primer = file[:end_index]
+                actual = file[end_index:]
+
+                print()
+                print('[%s (%d %d%%) %.4f] %f' % (
+                time_since(start), epoch, epoch / epochs * 100, sum(losses) / len(losses), .8))
+                pred_text = generate(decoder, primer, 500, temperature=.8)
+                print('primer:', primer, '\n')
+                print('pred:', pred_text, '\n')
+                print('actual:', actual, '\n')
+
+                print('\n\n\n')
+            except:
+                traceback.print_exc()
+
+            if sum(losses) / len(losses) < best_score:
+                best_score = sum(losses) / len(losses)
+                time_since_last_improvement = 0
+
+                print("Saving...")
+                save(decoder, loc = '{0}/{1}'.format(path, sub_name))
+            else:
+                time_since_last_improvement += 1
+
+            if patience >= time_since_last_improvement:
+                break
+
+
+def main():
+    files = read_files()
+
+    epochs = 1000000
+    chunk_len = g_batch_size
+    batch_size = 128
+    hidden_size = g_batch_size
+    n_layers = 5
+    print_every = 100
+
+    decoder = CharRNN(
+        n_characters,
+        hidden_size,
+        n_characters,
+        model='gru',
+        n_layers=n_layers,
+    )
+    decoder_optimizer = torch.optim.RMSprop(decoder.parameters(), lr = 1e-4)
     criterion = nn.CrossEntropyLoss()
 
     decoder.cuda()
 
     start = time.time()
-    loss_count = 1000
+    loss_count = 100
+
+    best_score = 10
 
     try:
         print("Training for %d epochs..." % epochs)
         losses = []
         for epoch in range(1, epochs + 1):
-            loss = train(*random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk_len))
+            loss = train(*random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk_len, files))
             losses.append(loss.item())
             losses = losses[-loss_count:]
 
@@ -235,12 +358,14 @@ def main():
                 except:
                     traceback.print_exc()
 
-                print("Saving...")
-                save(decoder)
+                if sum(losses)/len(losses) < best_score:
+                    best_score = sum(losses)/len(losses)
+
+                    print("Saving...")
+                    save(decoder)
 
     except KeyboardInterrupt:
-        print("Saving before quit...")
-        save(decoder)
+        print("exit...")
 
 
 if __name__ == '__main__':
