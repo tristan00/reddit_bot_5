@@ -64,15 +64,8 @@ def run_subreddit(sub_name, retrain = False, rescrape = False):
 
 
 
-def run_sub(sub, new = True):
-    try:
-        run_subreddit(sub, retrain=True, rescrape=False)
-    except:
-        run_subreddit(sub, retrain=True, rescrape=True)
-    time.sleep(600)
-    run_subreddit(sub, retrain=False, rescrape=False)
-    time.sleep(600)
-    run_subreddit(sub, retrain=False, rescrape=False)
+def run_sub(sub, retrain=True, rescrape=True):
+    run_subreddit(sub, retrain=retrain, rescrape=rescrape)
     time.sleep(600)
 
 
@@ -80,18 +73,21 @@ import time
 
 import string
 print(list(string.printable).index(' '))
-run_sub('meirl')
-run_sub('madlads')
-run_sub('MorbidReality')
-run_sub('WTF')
-run_sub('youdontsurf')
-run_sub('hailcorporate')
-run_sub('dankmemes')
-run_sub('Demotivational')
-run_sub('BikiniBottomTwitter')
-run_sub('memes')
-run_sub('ProgrammerHumor')
-run_sub('wellthatsucks')
+
+run_sub('trees', retrain=True, rescrape=False)
+# run_sub('highdeas')
+# run_sub('StonerPhilosophy')
+# run_sub('meirl')
+# run_sub('madlads')
+# run_sub('WTF')
+# run_sub('youdontsurf')
+# run_sub('hailcorporate')
+# run_sub('dankmemes')
+# run_sub('Demotivational')
+# run_sub('BikiniBottomTwitter')
+# run_sub('memes')
+# run_sub('ProgrammerHumor')
+# run_sub('wellthatsucks')
 
 
 

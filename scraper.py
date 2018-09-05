@@ -33,8 +33,11 @@ def get_subreddit(bot, subreddit_name):
         traceback.print_exc()
 
     posts = []
-    posts.extend([p for p in subreddit.top('all', limit = 1000)])
-    posts.extend([p for p in subreddit.new(limit=1000)])
+    posts.extend([p for p in subreddit.top('all', limit = 2000)])
+    posts.extend([p for p in subreddit.new(limit=2000)])
+    posts.extend([p for p in subreddit.hot(limit=2000)])
+    posts.extend([p for p in subreddit.controversial(limit=2000)])
+
     filtered_posts = []
     used_posts = []
     for i in posts:

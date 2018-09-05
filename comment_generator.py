@@ -21,6 +21,9 @@ import numpy as np
 import collections
 from nltk.tokenize import word_tokenize
 from nltk.probability import FreqDist
+
+from sklearn.model_selection import train_test_split
+
 # import nltk
 # nltk.download('punkt')
 all_characters = string.printable
@@ -204,6 +207,17 @@ def train(inp, target, decoder, criterion, decoder_optimizer, batch_size, chunk_
 
     return loss.data[0] / chunk_len
 
+
+def validate(inp, target, decoder, criterion, decoder_optimizer, batch_size, chunk_len):
+    hidden = decoder.init_hidden(batch_size)
+    hidden = hidden.cuda()
+    decoder.zero_grad()
+    loss = 0
+    for c in range(chunk_len):
+        output, hidden = decoder(inp[:,c], hidden)
+        loss += criterion(output.view(batch_size, -1), target[:,c])
+    return loss.data[0] / chunk_len
+
 def save(decoder, loc = None):
     if not loc:
         save_filename = os.path.splitext(os.path.basename('torch_char_generator'))[0]
@@ -225,8 +239,9 @@ def make_sub_prediction(sub_name, text, comment_len = 200):
 
 def make_sub_model(sub_name):
     files = read_sub(sub_name)
+    train_files, val_files = train_test_split(files, test_size=.1)
 
-    epochs = 12000
+    epochs = 100000
     chunk_len = g_batch_size
     batch_size = 128
     hidden_size = g_batch_size
@@ -247,17 +262,21 @@ def make_sub_model(sub_name):
     start = time.time()
     loss_count = 100
     best_score = 10
-    patience = 3
+
+    #TODO: add validation set
+    patience = 25
     time_since_last_improvement = 0
 
     print("Training for %d epochs..." % epochs)
     losses = []
-    for epoch in range(1, epochs + 1):
-        loss = train(*random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk_len, files))
-        losses.append(loss.item())
-        losses = losses[-loss_count:]
 
-        print('epoch:', epoch, 'loss:', sum(losses) / len(losses), len(losses))
+
+
+    for epoch in range(1, epochs + 1):
+        train(*random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk_len, train_files))
+        # losses.append(loss.item())
+        # losses = losses[-loss_count:]
+
 
         if epoch % print_every == 0:
             try:
@@ -272,16 +291,20 @@ def make_sub_model(sub_name):
                 actual = file[end_index:]
 
                 print()
-                print('[%s (%d %d%%) %.4f] %f' % (
-                time_since(start), epoch, epoch / epochs * 100, sum(losses) / len(losses), .8))
+
                 pred_text = generate(decoder, primer, 200, temperature=.8)
                 print('primer:', primer, '\n')
                 print('pred:', pred_text, '\n')
                 print('actual:', actual, '\n')
 
+                val_loss = validate(
+                    *random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk_len, train_files))
+                losses.append(val_loss)
+                print('loss: {0}'.format(val_loss))
                 print('\n\n\n')
             except:
                 traceback.print_exc()
+
 
             if sum(losses) / len(losses) < best_score:
                 best_score = sum(losses) / len(losses)
@@ -295,15 +318,19 @@ def make_sub_model(sub_name):
             if patience <= time_since_last_improvement:
                 break
 
+        print('epoch:', epoch)
+
+
 
 def main():
     files = read_files()
+    train_files, val_files = train_test_split(files, test_size=.1)
 
     epochs = 25000
     chunk_len = g_batch_size
     batch_size = 128
     hidden_size = g_batch_size
-    n_layers = 5
+    n_layers = 6
     print_every = 100
 
     decoder = CharRNN(
