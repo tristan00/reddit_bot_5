@@ -1,10 +1,10 @@
 path = r'/home/td/Documents/reddit_bot/'
 path_out = r'/home/td/Documents/reddit_bot/comment_texts/'
-c_splitter = ' c_splitter '
-client_id='6ThJaOdP-MT21A'
-client_secret='3sz-nfb9RAKSkBe_xxUA7QHcyDM'
-username='dirty_cheeser'
-password='SVUhgJCTZrPBeN2U'
+c_splitter = ' ^ '
+client_id='g7v1rB6f6fPs7g'
+client_secret='p3gnVdlEBDYWSJQDxLhOeCq7zg8'
+username='Fritigerns_revenge'
+password='w1IknUup1CCV'
 subreddits=['blackpeopletwitter', 'MemeEconomy', '195', 'coaxedintoasnafu', 'shittyadviceanimals', 'metal_me_irl',
             'bee_irl', 'wholesomememes', 'dankmemes', 'meirl', '2meirl4meirl', 'WTF', 'cringepics', 'MorbidReality',
             'nosleep', 'ImGoingToHellForThis', 'circlejerk', 'britishproblems', 'prequelmemes', 'dankchristianmemes',

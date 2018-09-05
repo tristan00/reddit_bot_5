@@ -56,26 +56,23 @@ def read_files():
 
     df['text'] = df['text'].fillna('')
     texts = df['text'].tolist()
-    texts = [i for i in texts if len(i) > min_len]
+    # texts = [i for i in texts if len(i) > min_len]
     print(len(texts))
     return texts
 
 
 def read_sub(sub_name):
-    df = pd.read_csv('{0}/{1}/text.csv'.format(path, sub_name), sep='|', index=False)
+    df = pd.read_csv('{0}/{1}/text.csv'.format(path, sub_name), sep='|', engine='python', error_bad_lines=False)
     t = QuantileTransformer()
     df = df[pd.to_numeric(df['score'], errors='coerce').notnull()]
     df['score'] = t.fit_transform(np.reshape(df['score'].values, (-1, 1)))
-    df = df[df['score'] > .75]
+    df = df[df['score'] > .2]
 
     df['text'] = df['text'].fillna('')
     texts = df['text'].tolist()
-    texts = [i for i in texts if len(i) > min_len]
+    # texts = [i for i in texts if len(i) > min_len]
     print(len(texts))
     return texts
-
-
-
 
 
 def char_tensor(string):
@@ -172,8 +169,9 @@ def random_training_set(decoder, criterion, decoder_optimizer, batch_size, chunk
             try:
 
                 file = random.choice(files)
-                while len(file) + 2 < chunk_len:
-                    file = random.choice(files)
+                # while len(file) + 2 < chunk_len:
+                #     file = random.choice(files)
+                file = ' ' * chunk_len + file
                 file_len = len(file)
 
                 start_index = random.randint(0, file_len - chunk_len)
@@ -218,9 +216,9 @@ def save(decoder, loc = None):
 
 def make_sub_prediction(sub_name, text, comment_len = 200):
     save_filename = '{0}/{1}/{2}'.format(path, sub_name, 'torch_char_generator')
-    decoder = torch.load(save_filename)
+    decoder = torch.load(save_filename).cpu()
     primer = text
-    pred_text = generate(decoder, primer, predict_len = comment_len, temperature=.8)
+    pred_text = generate(decoder, primer, predict_len = comment_len, temperature=.8, cuda = False)
     return pred_text
 
 
@@ -228,7 +226,7 @@ def make_sub_prediction(sub_name, text, comment_len = 200):
 def make_sub_model(sub_name):
     files = read_sub(sub_name)
 
-    epochs = 1000000
+    epochs = 12000
     chunk_len = g_batch_size
     batch_size = 128
     hidden_size = g_batch_size
@@ -276,7 +274,7 @@ def make_sub_model(sub_name):
                 print()
                 print('[%s (%d %d%%) %.4f] %f' % (
                 time_since(start), epoch, epoch / epochs * 100, sum(losses) / len(losses), .8))
-                pred_text = generate(decoder, primer, 500, temperature=.8)
+                pred_text = generate(decoder, primer, 200, temperature=.8)
                 print('primer:', primer, '\n')
                 print('pred:', pred_text, '\n')
                 print('actual:', actual, '\n')
@@ -294,14 +292,14 @@ def make_sub_model(sub_name):
             else:
                 time_since_last_improvement += 1
 
-            if patience >= time_since_last_improvement:
+            if patience <= time_since_last_improvement:
                 break
 
 
 def main():
     files = read_files()
 
-    epochs = 1000000
+    epochs = 25000
     chunk_len = g_batch_size
     batch_size = 128
     hidden_size = g_batch_size

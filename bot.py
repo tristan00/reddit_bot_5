@@ -9,13 +9,13 @@ import re
 
 def get_comment_dicts_from_posts(prev_text, comments):
     try:
-        prev_text = prev_text + c_splitter + str(comments.body)
+        prev_text = prev_text + c_splitter + str(comments.body).replace(c_splitter, ' ')
         comment_text = []
 
         for i in comments.replies._comments:
             comment_text.extend(get_comment_dicts_from_posts(prev_text, i))
 
-        comment_text.append({'comment':comments, 'text':prev_text.replace('|', ' ')})
+        comment_text.append({'comment':comments, 'text':prev_text.replace('|', ' ') + c_splitter})
 
         return comment_text
     except:
@@ -24,25 +24,29 @@ def get_comment_dicts_from_posts(prev_text, comments):
 
 
 
-def get_comment_dicts(p):
-    post_title = p.title
+def get_comment_dicts(posts):
     texts = []
-    for j in i.comments._comments:
-        try:
-            texts.extend(get_comment_dicts_from_posts(post_title, j))
-        except:
-            traceback.print_exc()
+    for p in posts:
+        post_title = p.title
+
+        for j in p.comments._comments:
+            try:
+                texts.extend(get_comment_dicts_from_posts(post_title, j))
+            except:
+                traceback.print_exc()
     return texts
 
 
-def run_subreddit(sub_name, retrain = False):
-    if retrain:
+def run_subreddit(sub_name, retrain = False, rescrape = False):
+    if rescrape:
         scrape_subreddit(sub_name)
+
+    if retrain:
         make_sub_model(sub_name)
 
     posts = get_new_posts(sub_name)
     comment_dicts = get_comment_dicts(posts)
-    comment_dicts = [i for i in comment_dicts if len(i) > min_len and 'bot' not in i]
+    comment_dicts = [i for i in comment_dicts if len(i['text']) > min_len and 'bot' not in i]
 
     if len(comment_dicts) > 0:
         chosen_comment = random.choice(comment_dicts)
@@ -52,18 +56,42 @@ def run_subreddit(sub_name, retrain = False):
 
     pred_text = make_sub_prediction(sub_name, chosen_comment['text'])
     reply_text = pred_text.split(c_splitter)[0]
+    print(chosen_comment['text'])
+    print(pred_text)
+    print(reply_text)
+
     chosen_comment['comment'].reply(reply_text)
 
 
 
+def run_sub(sub, new = True):
+    try:
+        run_subreddit(sub, retrain=True, rescrape=False)
+    except:
+        run_subreddit(sub, retrain=True, rescrape=True)
+    time.sleep(600)
+    run_subreddit(sub, retrain=False, rescrape=False)
+    time.sleep(600)
+    run_subreddit(sub, retrain=False, rescrape=False)
+    time.sleep(600)
 
-run_subreddit('dankmemes', retrain=True)
 
+import time
 
-
-
-
-
+import string
+print(list(string.printable).index(' '))
+run_sub('meirl')
+run_sub('madlads')
+run_sub('MorbidReality')
+run_sub('WTF')
+run_sub('youdontsurf')
+run_sub('hailcorporate')
+run_sub('dankmemes')
+run_sub('Demotivational')
+run_sub('BikiniBottomTwitter')
+run_sub('memes')
+run_sub('ProgrammerHumor')
+run_sub('wellthatsucks')
 
 
 

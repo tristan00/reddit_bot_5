@@ -25,7 +25,7 @@ def create_praw_agent():
     return reddit_agent
 
 
-def get_subeddit(bot, subreddit_name):
+def get_subreddit(bot, subreddit_name):
     subreddit = bot.subreddit(subreddit_name)
     try:
         subreddit.subscribe()
@@ -42,12 +42,13 @@ def get_subeddit(bot, subreddit_name):
             filtered_posts.append(i)
             used_posts.append(i.fullname)
 
-    read_files(filtered_posts, subreddit)
+    # read_files(filtered_posts, subreddit)
+    return posts
 
 
 def read_subreddit(sub_name):
     bot = create_praw_agent()
-    return get_subeddit(bot, sub_name)
+    return get_subreddit(bot, sub_name)
 
 
 def generate_subreddit_list():
@@ -65,7 +66,7 @@ def generate_subreddit_list():
 
 def get_comments_from_posts(prev_text, comments):
     try:
-        prev_text = prev_text + c_splitter + str(comments.body)
+        prev_text = prev_text + c_splitter + str(comments.body).replace(c_splitter, ' ')
         comment_text = []
 
         for i in comments.replies._comments:
@@ -113,7 +114,10 @@ def scrape_subreddit(sub_name):
                 traceback.print_exc()
 
     df = pd.DataFrame.from_dict(texts)
-    shutil.rmtree('{0}/{1}'.format(path, sub_name))
+    try:
+        shutil.rmtree('{0}/{1}'.format(path, sub_name))
+    except:
+        pass
     os.makedirs('{0}/{1}'.format(path, sub_name))
     df.to_csv('{0}/{1}/text.csv'.format(path, sub_name), sep = '|', index = False)
 
@@ -122,7 +126,7 @@ def get_new_posts(subreddit_name):
     bot = create_praw_agent()
     posts = []
     subreddit = bot.subreddit(subreddit_name)
-    posts.extend([p for p in subreddit.new(limit=20)])
+    posts.extend([p for p in subreddit.new(limit=50)])
     return posts
 
 
